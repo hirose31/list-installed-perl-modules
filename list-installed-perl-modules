@@ -1,0 +1,157 @@
+#!perl
+
+use strict;
+use warnings;
+
+use Getopt::Long qw(:config posix_default no_ignore_case no_ignore_case_always);
+use Pod::Usage;
+
+use ExtUtils::Installed;
+use Data::Dumper;
+
+my $Format = 'cpanfile';
+my $Verbose = 0;
+
+sub infof(@) {
+    warn sprintf shift, @_ if $Verbose;
+}
+
+MAIN: {
+    GetOptions(
+        'format|f=s' => \$Format,
+        'verbose|v+' => \$Verbose,
+        'help|h|?' => sub { pod2usage(-verbose=>1) },
+    ) or pod2usage();
+
+    my %modules;
+
+    # ignore current directory
+    my @target_inc = grep !/^\.$/, @INC;
+    my $re_target_inc = '(' . join('|', @target_inc) . ')';
+
+    my $installed = ExtUtils::Installed->new(inc_override => \@target_inc);
+
+    for my $module ($installed->modules()) {
+        next if $module eq 'Perl';
+
+        my $version;
+        if (($version = $installed->version($module))) {
+            ;
+        } else {
+            infof "[INFO] $module\n";
+
+            # For module like: name Foo but there isn't Foo.pm file.
+            # eg: Gearman, Mail
+            for my $file ($installed->files($module)) {
+                my $module2 = $file;
+                next unless $module2 =~ s/$re_target_inc//;
+                $module2 =~ s{^/}{};
+                $module2 =~ s{/}{::}g;
+                $module2 =~ s{\..+?$}{}; # strip suffix
+
+                local $@;
+                eval "require $module2";
+                if (!$@) {
+                    local $@;
+                    eval {
+                        $version = $module2->VERSION;
+                    };
+                    if ($version) {
+                        $module = $module2;
+                        infof "[INFO] found   VERSION: $module2 (packlist)\n";
+                        last;
+                    } else {
+                        infof "[INFO] missing VERSION: $module2 (packlist)\n";
+                        next;
+                    }
+                } else {
+                    my $cause = $@;
+                    chomp $cause;
+                    infof "[INFO] failed to require $module2 (packlist): $cause\n";
+                }
+
+            }
+        }
+
+        if (! $version) {
+            warn "[SKIP] missing VERSION: $module\n";
+            next;
+        }
+
+        $modules{$module} = "$version";
+    }
+
+    if ($Format eq 'hash') {
+        local $Data::Dumper::Indent    = 1;
+        local $Data::Dumper::Sortkeys  = 1;
+        local $Data::Dumper::Terse     = 1;
+        local $Data::Dumper::Useqq     = 1;
+        local $Data::Dumper::Quotekeys = 1;
+        print Dumper(\%modules);
+    } else {
+        # cpanfile
+        for my $module (sort keys %modules) {
+            printf "requires '%s', '== %s'\n", $module, $modules{$module};
+        }
+    }
+
+    exit 0;
+}
+
+__END__
+
+=head1 NAME
+
+B<list-installed-perl-modules> - list up installed Perl modules
+
+=head1 SYNOPSIS
+
+B<list-installed-perl-modules>
+I<file>
+[B<-f> I<format>]
+[B<-v> | B<--verbose>]
+
+B<list-installed-perl-modules> B<-h> | B<--help> | B<-?>
+
+    $ list-installed-perl-modules
+    $ list-installed-perl-modules -f hash
+
+=head1 DESCRIPTION
+
+This script lists up installed Perl modules and outputs as cpanfile or hash format.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-f> I<format>, B<--format> I<format>
+
+Specify output format: "cpanfile" or "hash". Default is "cpanfile".
+
+=item B<-v>, B<--verbose>
+
+Enable verbose mode.
+
+=back
+
+=head1 SEE ALSO
+
+L<ExtUtils::Installed>
+
+=head1 AUTHOR
+
+Your Name E<lt>hirose31@gmail.comE<gt>
+
+=cut
+
+# for Emacsen
+# Local Variables:
+# mode: cperl
+# cperl-indent-level: 4
+# cperl-close-paren-offset: -4
+# cperl-indent-parens-as-block: t
+# indent-tabs-mode: nil
+# coding: utf-8
+# End:
+
+# vi: set ts=4 sw=4 sts=0 et ft=perl fenc=utf-8 :
