@@ -107,7 +107,6 @@ B<list-installed-perl-modules> - list up installed Perl modules
 =head1 SYNOPSIS
 
 B<list-installed-perl-modules>
-I<file>
 [B<-f> I<format>]
 [B<-v> | B<--verbose>]
 
@@ -140,7 +139,7 @@ L<ExtUtils::Installed>
 
 =head1 AUTHOR
 
-Your Name E<lt>hirose31@gmail.comE<gt>
+HIROSE Masaaki E<lt>hirose31@gmail.comE<gt>
 
 =cut
 
