@@ -36,7 +36,7 @@ MAIN: {
 
         my $version;
         if (($version = $installed->version($module))) {
-            ;
+            $version = undef if $version eq 'undef';
         } else {
             infof "[INFO] $module\n";
 
