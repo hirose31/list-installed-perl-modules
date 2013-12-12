@@ -91,7 +91,7 @@ MAIN: {
     } else {
         # cpanfile
         for my $module (sort keys %modules) {
-            printf "requires '%s', '== %s'\n", $module, $modules{$module};
+            printf "requires '%s', '== %s';\n", $module, $modules{$module};
         }
     }
 
