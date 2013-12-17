@@ -42,7 +42,7 @@ MAIN: {
 
             # For module like: name Foo but there isn't Foo.pm file.
             # eg: Gearman, Mail
-            for my $file ($installed->files($module)) {
+            for my $file (sort $installed->files($module)) {
                 my $module2 = $file;
                 next unless $module2 =~ s/$re_target_inc//;
                 $module2 =~ s{^/}{};
