@@ -6,6 +6,7 @@ use warnings;
 use Getopt::Long qw(:config posix_default no_ignore_case no_ignore_case_always);
 use Pod::Usage;
 
+use version 0.77;
 use ExtUtils::Installed;
 use Data::Dumper;
 
@@ -78,7 +79,7 @@ MAIN: {
             next;
         }
 
-        $modules{$module} = "$version";
+        $modules{$module} = version->parse($version);
     }
 
     if ($Format eq 'hash') {
