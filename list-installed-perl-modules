@@ -8,6 +8,7 @@ use Pod::Usage;
 
 use version 0.77;
 use ExtUtils::Installed;
+use Module::CoreList;
 use Data::Dumper;
 
 my $Format = 'cpanfile';
@@ -32,29 +33,54 @@ MAIN: {
 
     my $installed = ExtUtils::Installed->new(inc_override => \@target_inc);
 
-    for my $module ($installed->modules()) {
+    my $perl_version = version->parse($^V)->numify;
+    my @core_modules = Module::CoreList->find_modules(qr/./, $perl_version);
+    my %is_core_module = map {$_=>1} @core_modules;
+
+    for my $module (@core_modules, $installed->modules()) {
         next if $module eq 'Perl';
 
         my $version;
-        if (($version = $installed->version($module))) {
-            $version = undef if $version eq 'undef';
+        eval {
+            $version = $installed->version($module);
+        };
+        $version = undef if $version && $version eq 'undef';
+        if ($version) {
+            infof "[INFO] $module (installed->version)\n";
         } else {
             infof "[INFO] $module\n";
 
             # For module like: name Foo but there isn't Foo.pm file.
             # eg: Gearman, Mail
-            for my $file (sort $installed->files($module)) {
-                my $module2 = $file;
-                next unless $module2 =~ s/$re_target_inc//;
-                $module2 =~ s{^/}{};
-                $module2 =~ s{/}{::}g;
-                $module2 =~ s{\..+?$}{}; # strip suffix
+            my $_module = $module;
+            $_module =~ s{-}{::}g;
+            my @modules2 = ($_module);
+            eval {
+                my @files = $installed->files($module);
 
+                for my $f (sort @files) {
+                    my $m = $f;
+                    next unless $m =~ s/$re_target_inc//;
+                    $m =~ s{^/}{};
+                    $m =~ s{/}{::}g;
+                    $m =~ s{\..+?$}{}; # strip suffix
+                    push @modules2, $m;
+                }
+            };
+
+            for my $module2 (@modules2) {
+                # skip core and not dual life module
+                next if $module2 =~ /^(?:sort)$/;
+
+                infof "require $module2";
                 local $@;
                 eval "require $module2";
                 if (!$@) {
                     local $@;
                     eval {
+                        # suppress warnings "Version string '-1, set by base.pm' contains invalid data; ignoring: '-1, set by base.pm'" which are arised by
+                        # a super class but not defined $VERSION.
+                        no warnings qw(misc);
                         $version = $module2->VERSION;
                     };
                     if ($version) {
@@ -75,11 +101,22 @@ MAIN: {
         }
 
         if (! $version) {
-            warn "[SKIP] missing VERSION: $module\n";
+            if ($Verbose || !$is_core_module{$module}) {
+                warn "[SKIP] missing VERSION: $module\n";
+            }
             next;
         }
 
-        $modules{$module} = version->parse($version);
+        $version = version->parse($version);
+
+        if ($is_core_module{$module}
+        && $Module::CoreList::version{$perl_version}{$module}
+        && $version == version->parse("$Module::CoreList::version{$perl_version}{$module}")) {
+            infof "[SKIP] same version as core: $module\n";
+            next;
+        }
+
+        $modules{$module} = $version;
     }
 
     if ($Format eq 'hash') {
